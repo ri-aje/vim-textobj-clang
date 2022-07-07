@@ -22,8 +22,23 @@ function! s:select_extent(func)
     endif
     let pos = getpos('.')
     let start = [pos[0], extent.start.line, extent.start.column, pos[3]]
-    let end = [pos[0], extent.end.line, extent.end.column, pos[3]]
-    return ['v', start, end]
+    " llvm gives back an extent that is one char too large than the real
+    " language syntax extent at the end. -1 to fix that annoying issue,
+    " but not for c++ classes, which somehow llvm is able to return the tightest
+    " syntax extent as expected.
+    if a:func =~? 'class'
+        let end = [pos[0], extent.end.line, extent.end.column, pos[3]]
+    else
+        let end = [pos[0], extent.end.line, extent.end.column-1, pos[3]]
+    endif
+    " if the syntax entity is reasonably expected to occupy its own line, then
+    " default to line-wise selection, otherwise use char-wise selection for
+    " precision. in case needed, press 'v' in line-wise to switch to char-wise.
+    if a:func =~? 'namespace' || a:func =~? 'class' || a:func =~? 'function' || a:func =~? 'statement'
+        return ['V', start, end]
+    else
+        return ['v', start, end]
+    endif
 endfunction
 
 function! textobj#clang#any_select_i()
@@ -81,6 +96,6 @@ function! textobj#clang#any_select_i()
 
     let pos = getpos('.')
     let start = [pos[0], extent.start.line, extent.start.column, pos[3]]
-    let end = [pos[0], extent.end.line, extent.end.column, pos[3]]
+    let end = [pos[0], extent.end.line, extent.end.column-1, pos[3]]
     return ['v', start, end]
 endfunction
